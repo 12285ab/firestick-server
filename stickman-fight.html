@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>联机火柴人格斗游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            background: #2c3e50;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8C8 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        #status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 100;
+            min-width: 200px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 100;
+            text-align: center;
+        }
+        
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: rgba(255,0,0,0.3);
+            border: 2px solid white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(to right, #ff0000, #ff6b6b);
+            transition: width 0.3s;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <!-- 开始界面 -->
+    <div id="start-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; color: white; flex-direction: column;">
+        <h1 style="font-size: 3em; margin-bottom: 30px;">火柴人格斗</h1>
+        <div style="background: rgba(0,0,0,0.7); padding: 30px; border-radius: 10px; text-align: center; max-width: 500px; width: 90%;">
+            <div id="room-controls">
+                <button id="create-room" style="background: #4CAF50; color: white; border: none; padding: 12px 24px; margin: 10px; border-radius: 5px; cursor: pointer; font-size: 16px;">创建房间</button>
+                <div style="margin: 20px 0; font-size: 18px;">或</div>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="room-code" placeholder="输入邀请码" style="padding: 10px; width: 200px; border: 2px solid #4CAF50; border-radius: 5px; font-size: 16px; text-align: center; text-transform: uppercase;">
+                </div>
+                <button id="join-room" style="background: #2196F3; color: white; border: none; padding: 12px 24px; margin: 10px; border-radius: 5px; cursor: pointer; font-size: 16px;">加入房间</button>
+            </div>
+            <div id="room-info" style="margin-top: 20px; display: none;">
+                <p>房间号: <span id="room-code-display"></span></p>
+                <p>玩家: <span id="player-count">1</span>/2</p>
+                <p id="waiting-message">等待其他玩家加入...</p>
+                <button id="start-game" style="background: #FF9800; color: white; border: none; padding: 10px 20px; margin-top: 10px; border-radius: 5px; cursor: pointer; display: none;">开始游戏</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div><strong>玩家信息</strong></div>
+            <div id="playerInfo">等待连接...</div>
+            <div class="health-bar">
+                <div id="playerHealth" class="health-fill" style="width: 100%"></div>
+            </div>
+            <div><strong>对手信息</strong></div>
+            <div id="opponentInfo">等待对手...</div>
+            <div class="health-bar">
+                <div id="opponentHealth" class="health-fill" style="width: 100%"></div>
+            </div>
+        </div>
+        <div id="status">
+            <div><strong>游戏状态</strong></div>
+            <div id="gameStatus">未连接</div>
+            <div id="roomInfo">正在连接...</div>
+            <div id="inviteCode" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; display: none;">
+                <div style="font-size: 12px; margin-bottom: 5px;">邀请码:</div>
+                <div id="roomCodeDisplay" style="font-size: 20px; font-weight: bold; color: #FFD700; letter-spacing: 3px;"></div>
+                <button id="copyCodeBtn" style="margin-top: 5px; padding: 5px 10px; font-size: 11px;">复制邀请码</button>
+            </div>
+            <div id="joinRoomSection" style="margin-top: 10px; display: none;">
+                <input type="text" id="roomCodeInput" placeholder="输入邀请码" style="padding: 5px; margin-right: 5px; border-radius: 3px; border: none;">
+                <button id="joinRoomBtn" style="padding: 5px 10px; font-size: 11px;">加入房间</button>
+            </div>
+            <div id="gameTips" style="margin-top: 10px; font-size: 12px; color: #FFD700;"></div>
+        </div>
+        <div id="controls">
+            <div><strong>控制说明</strong></div>
+            <div>A/D 或 ←/→ : 左右移动</div>
+            <div>W 或 ↑ : 跳跃</div>
+            <div>J 或 Space : 攻击</div>
+            <div style="margin-top: 10px;">
+                <button id="createRoomBtn" style="display: none;">创建新房间</button>
+                <button id="disconnectBtn" disabled>断开连接</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="stickman-fight.js"></script>
+</body>
+</html>
+
